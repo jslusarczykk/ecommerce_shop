@@ -2,14 +2,16 @@
 
 namespace ecommerce_shop.Models
 {
-    public class Product
+    public class Product:BaseModel
     {
-        public int id { get;  set; }
+        public int Id { get;  set; }
+        
+        public string Name { get; set; } = string.Empty;
+        public string Ean { get; set; } = string.Empty;
+        public decimal Price { get; set; }
+        public int Stock { get; set; } = 0;
+        public string Sku { get; set; }= string.Empty;
 
-        public string? name { get; set; } = default!;
-
-        public Category category { get; set; }
-
-        public Guid created_by { get; set; }
+        public Category Category { get; set; } = default!;
     }
 }
