@@ -1,5 +1,9 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Text.RegularExpressions;
+using EShop.Domain.Enums;
+using EShop.Domain.Exceptions;
+using EShop.Domain.EXCEPTIONS;
 
 namespace EShop.Application
 {
@@ -7,30 +11,82 @@ namespace EShop.Application
     {
         /// <summary>
         /// Sprawdza, czy podany numer karty jest poprawny zgodnie z algorytmem Luhna.
-        /// Dopuszczane są spacje i myślniki w numerze karty (zostają usunięte przed weryfikacją).
+        /// Jeśli numer karty jest błędny, rzuca wyjątek z odpowiednim kodem błędu.
         /// </summary>
         public bool ValidateCard(string cardNumber)
         {
             // 1) Sprawdzenie pustego/nieważnego inputu
             if (string.IsNullOrWhiteSpace(cardNumber))
-                return false;
+            {
+                throw new CardNumberInvalidException("Card number is empty or contains only whitespace.");
+            }
 
             // 2) Usuwamy spacje i myślniki
             cardNumber = cardNumber.Replace(" ", "").Replace("-", "");
 
             // 3) Numer karty musi składać się wyłącznie z cyfr
             if (!cardNumber.All(char.IsDigit))
-                return false;
+            {
+                throw new CardNumberInvalidException("Card number contains invalid characters.");
+            }
 
-            // *** LINIE PONIŻEJ DODAJĄ WALIDACJĘ DŁUGOŚCI 13–19 ***
-            if (cardNumber.Length < 13 || cardNumber.Length > 19)
-                return false;
-            // *** KONIEC DODANEGO KODU ***
+            // 4) Sprawdzenie poprawnej długości karty
+            if (cardNumber.Length < 13)
+            {
+                throw new CardNumberTooShortException($"Card number is too short (length: {cardNumber.Length}).");
+            }
+            if (cardNumber.Length > 19)
+            {
+                throw new CardNumberTooLongException($"Card number is too long (length: {cardNumber.Length}).");
+            }
 
+            // 5) Walidacja algorytmem Luhna
+            if (!IsLuhnValid(cardNumber))
+            {
+                throw new CardNumberInvalidException("Card number failed the Luhn algorithm check.");
+            }
+
+            return true; // Karta jest poprawna
+        }
+
+        /// <summary>
+        /// Określa typ karty kredytowej na podstawie wyrażeń regularnych.
+        /// Jeśli typ karty nie jest obsługiwany, rzuca wyjątek UnsupportedCardProviderException.
+        /// </summary>
+        public CreditCardProvider GetCardType(string cardNumber)
+        {
+            if (string.IsNullOrWhiteSpace(cardNumber))
+            {
+                throw new CardNumberInvalidException("Card number is empty or contains only whitespace.");
+            }
+
+            // Usuwamy spacje i myślniki
+            cardNumber = cardNumber.Replace(" ", "").Replace("-", "");
+
+            // Visa – zaczyna się od 4, długość od 13 do 19
+            if (Regex.IsMatch(cardNumber, @"^4(\d{12}|\d{15}|\d{18})$"))
+                return CreditCardProvider.Visa;
+
+            // MasterCard – stare BIN: 51–55, nowe BIN: 2221–2720
+            if (Regex.IsMatch(cardNumber, @"^(5[1-5]\d{14}|2(2[2-9][1-9]|2[3-9]\d{2}|[3-6]\d{3}|7([01]\d{2}|20\d))\d{10})$"))
+                return CreditCardProvider.MasterCard;
+
+            // American Express – zaczyna się od 34 lub 37 (15 cyfr)
+            if (Regex.IsMatch(cardNumber, @"^3[47]\d{13}$"))
+                return CreditCardProvider.AmericanExpress;
+
+            // Jeśli karta nie pasuje do żadnej obsługiwanej kategorii
+            throw new UnsupportedCardProviderException($"Unsupported card provider for number: {cardNumber}");
+        }
+
+        /// <summary>
+        /// Implementacja algorytmu Luhna do walidacji numeru karty kredytowej.
+        /// </summary>
+        private bool IsLuhnValid(string cardNumber)
+        {
             int sum = 0;
-            bool doubleDigit = false;  // false oznacza: "nie podwajaj pierwszej (prawej) cyfry"
+            bool doubleDigit = false;
 
-            // 4) Iterujemy od PRAWEJ do LEWEJ
             for (int i = cardNumber.Length - 1; i >= 0; i--)
             {
                 int digit = cardNumber[i] - '0';
@@ -47,53 +103,7 @@ namespace EShop.Application
                 doubleDigit = !doubleDigit;
             }
 
-            // 5) Suma musi być podzielna przez 10
             return (sum % 10 == 0);
-        }
-
-
-
-        /// <summary>
-        /// Określa typ karty kredytowej na podstawie wyrażeń regularnych.
-        /// </summary>
-        public string GetCardType(string cardNumber)
-        {
-            if (string.IsNullOrWhiteSpace(cardNumber))
-                return "Unknown";
-
-            // Usuwamy spacje i myślniki
-            cardNumber = cardNumber.Replace(" ", "").Replace("-", "");
-
-            // Visa – zaczyna się od 4, długość od 13 do 19
-            if (Regex.IsMatch(cardNumber, @"^4(\d{12}|\d{15}|\d{18})$"))
-                return "Visa";
-
-            // MasterCard – stare BIN: 51–55, nowe BIN: 2221–2720
-            if (Regex.IsMatch(cardNumber, @"^(5[1-5]\d{14}|2(2[2-9][1-9]|2[3-9]\d{2}|[3-6]\d{3}|7([01]\d{2}|20\d))\d{10})$"))
-                return "MasterCard";
-
-            // American Express – zaczyna się od 34 lub 37 (15 cyfr)
-            if (Regex.IsMatch(cardNumber, @"^3[47]\d{13}$"))
-                return "American Express";
-
-            // Discover – 6011..., 622..., 64..., 65...
-            if (Regex.IsMatch(cardNumber, @"^(6011\d{12}|65\d{14}|64[4-9]\d{13}|622(1[2-9][6-9]|[2-8]\d{2}|9([01]\d|2[0-5]))\d{10})$"))
-                return "Discover";
-
-            // JCB
-            if (Regex.IsMatch(cardNumber, @"^(352[89]|35[3-8]\d)\d{12}$"))
-                return "JCB";
-
-            // Diners Club
-            if (Regex.IsMatch(cardNumber, @"^3(0[0-5]|[68]\d)\d{11}$"))
-                return "Diners Club";
-
-            // Maestro
-            if (Regex.IsMatch(cardNumber, @"^(50|5[6-9]|6\d)\d{10,17}$"))
-                return "Maestro";
-
-            // W innym przypadku nie rozpoznano typu
-            return "Unknown";
         }
     }
 }
