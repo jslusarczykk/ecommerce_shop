@@ -2,7 +2,6 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 using EShop.Domain.Enums;
-using EShop.Domain.Exceptions;
 using EShop.Domain.EXCEPTIONS;
 
 namespace EShop.Application
@@ -56,28 +55,24 @@ namespace EShop.Application
         public CreditCardProvider GetCardType(string cardNumber)
         {
             if (string.IsNullOrWhiteSpace(cardNumber))
-            {
                 throw new CardNumberInvalidException("Card number is empty or contains only whitespace.");
-            }
 
-            // Usuwamy spacje i myślniki
             cardNumber = cardNumber.Replace(" ", "").Replace("-", "");
 
-            // Visa – zaczyna się od 4, długość od 13 do 19
             if (Regex.IsMatch(cardNumber, @"^4(\d{12}|\d{15}|\d{18})$"))
                 return CreditCardProvider.Visa;
 
-            // MasterCard – stare BIN: 51–55, nowe BIN: 2221–2720
             if (Regex.IsMatch(cardNumber, @"^(5[1-5]\d{14}|2(2[2-9][1-9]|2[3-9]\d{2}|[3-6]\d{3}|7([01]\d{2}|20\d))\d{10})$"))
                 return CreditCardProvider.MasterCard;
 
-            // American Express – zaczyna się od 34 lub 37 (15 cyfr)
             if (Regex.IsMatch(cardNumber, @"^3[47]\d{13}$"))
                 return CreditCardProvider.AmericanExpress;
 
-            // Jeśli karta nie pasuje do żadnej obsługiwanej kategorii
-            throw new UnsupportedCardProviderException($"Unsupported card provider for number: {cardNumber}");
+            // Fallback to built-in exception
+            throw new InvalidOperationException($"Unsupported card provider for number: {cardNumber}");
         }
+
+
 
         /// <summary>
         /// Implementacja algorytmu Luhna do walidacji numeru karty kredytowej.

@@ -10,8 +10,21 @@ namespace EShop.Domain.EXCEPTIONS
     {
         public virtual int StatusCode => 414;
 
+        // Default constructor with predefined message
         public CardNumberTooLongException()
             : base("Card number is too long.")
+        {
+        }
+
+        // Constructor with custom message
+        public CardNumberTooLongException(string message)
+            : base(message)
+        {
+        }
+
+        // Constructor with custom message and inner exception
+        public CardNumberTooLongException(string message, Exception innerException)
+            : base(message, innerException)
         {
         }
     }

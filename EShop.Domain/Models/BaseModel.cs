@@ -1,7 +1,7 @@
 ﻿using static System.Runtime.InteropServices.JavaScript.JSType;
 using System;
 
-namespace ecommerce_shop.Models
+namespace EShop.Domain.Models
 {
     public class BaseModel
     {
